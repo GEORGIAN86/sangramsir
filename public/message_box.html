@@ -190,27 +190,6 @@
         margin-top: 20px;
         width: 100%;
       }
-      /* Add additional styles for #msg_list */
-      #msg_list {
-        list-style-type: none;
-        padding: 0;
-        margin-top: 10px; /* Adjust the margin as needed */
-      }
-
-      #msg_list li {
-        margin-bottom: 5px; /* Adjust the margin between each message */
-        font-size: 14px; /* Adjust the font size as needed */
-      }
-
-      #msg_list li::before {
-        content: "\2022"; /* Add a bullet point before each message */
-        color: var(--dark-color-a); /* Adjust the color as needed */
-        display: inline-block;
-        width: 1em;
-        margin-left: -1em;
-      }
-
-      /* Ensure that the messages list scrolls within the defined max height */
 
       @media (max-width: 700px) {
         .chat-main {
@@ -237,16 +216,7 @@
           <h3><i class="fas fa-users"></i> Users</h3>
           <ul id="users"></ul>
         </div>
-        <div class="chat-messages">
-          <ul id="msg_list">
-            <!-- Previous messages will be inserted here -->
-            <% for (let i = 0; i < previousmsgs.length; i++) {%>
-            <li>
-              <%= previousmsgs[i].sender %> - <%= previousmsgs[i].content %>
-            </li>
-            <% } %>
-          </ul>
-        </div>
+        <div class="chat-messages"></div>
       </main>
       <div class="chat-form-container">
         <form id="chat-form">
@@ -254,9 +224,10 @@
             id="msg"
             type="text"
             placeholder="Enter Message"
+            required
             autocomplete="off"
           />
-          <button class="send"><i class="fas fa-paper-plane"></i> Send</button>
+          <button class="btn"><i class="fas fa-paper-plane"></i> Send</button>
         </form>
       </div>
     </div>
@@ -272,148 +243,92 @@
       const chatMessages = document.querySelector(".chat-messages");
       const roomName = document.getElementById("room-name");
       const userList = document.getElementById("users");
-      let send = document.getElementById("send");
-      //   let msgList = document.getElementById("msg_list");
-      // Get username and room from URL
-      //   const { username, room } = Qs.parse(location.search, {
-      //     ignoreQueryPrefix: true,
-      //   });
-      const username = "<%= user %>";
-      const room = "<%= groupname%>";
-      console.log(username, room);
-      outputRoomName(room);
-      function outputRoomName(room) {
-        roomName.innerText = room;
-      }
-      // function populatePreviousMessages(previousmsgs) {
-      //   const msgList = document.getElementById("msg_list");
-      //   msgList.innerHTML = ""; // Clear previous messages
 
-      //   for (let i = 0; i < previousmsgs.length; i++) {
-      //     const li = document.createElement("li");
-      //     li.innerHTML = `<strong>${previousmsgs[i].sender}</strong> - ${previousmsgs[i].content}`;
-      //     msgList.appendChild(li);
-      //   }
-      // }
-      // <% for (let i = 0; i < previousmsgs.length; i++) {%>
-      //       <li>
-      //         <%= previousmsgs[i].sender %> - <%= previousmsgs[i].content %>
-      //       </li>
-      //       <% } %>
-      // console.log("debug the etry", previousmsgs);
-      // populatePreviousMessages(previousmsgs);
+      // Get username and room from URL
+      const { username, room } = Qs.parse(location.search, {
+        ignoreQueryPrefix: true,
+      });
+      console.log(username, room);
+
       const socket = io();
 
       // Join chatroom
-      socket.emit("join_room", {
-        roomid: "<%= roomid %>",
+      socket.emit("joinRoom", { username, room });
+
+      // Get room and users
+      socket.on("roomUsers", ({ room, users }) => {
+        outputRoomName(room);
+        outputUsers(users);
       });
 
-      // send.addEventListener("click", () => {
-      //   let msg = chatForm.value;
-      //   socket.emit("new_msg", {
-      //     message: msg,
-      //     roomid: "<%= roomid %>",
-      //     sender: "<%= user %>",
-      //   });
-      //   input.value = "";
-      // });
-      // Get room and users
-      //   socket.on("roomUsers", ({ room, users }) => {
-      //     outputRoomName(room);
-      //     outputUsers(users);
-      //   });
-
       // Message from server
-      //   socket.on("message", (message) => {
-      //     console.log(message);
-      //     outputMessage(message);
+      socket.on("message", (message) => {
+        console.log(message);
+        outputMessage(message);
 
-      //     // Scroll down
-      //     chatMessages.scrollTop = chatMessages.scrollHeight;
-      //   });
+        // Scroll down
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      });
 
       // Message submit
-      chatForm.addEventListener("submit", function (e) {
-        e.preventDefault(); // Prevent the form from submitting and refreshing the page
+      chatForm.addEventListener("submit", (e) => {
+        e.preventDefault();
 
-        // Retrieve the text from the input field
-        const msgInput = document.getElementById("msg");
-        const messageText = msgInput.value;
+        // Get message text
+        let msg = e.target.elements.msg.value;
 
-        // Do something with the messageText, for example, send it to the server or display it on the page
-        socket.emit("new_msg", {
-          message: messageText,
-          roomid: "<%= roomid %>",
-          sender: "<%= user %>",
-        });
+        msg = msg.trim();
 
-        // Clear the input field
-        msgInput.value = "";
+        if (!msg) {
+          return false;
+        }
+
+        // Emit message to server
+        socket.emit("chatMessage", msg);
+
+        // Clear input
+        e.target.elements.msg.value = "";
+        e.target.elements.msg.focus();
       });
 
       // Output message to DOM
-      //   function outputMessage(message) {
-      //     const div = document.createElement("div");
-      //     div.classList.add("message");
-      //     const p = document.createElement("p");
-      //     p.classList.add("meta");
-      //     p.innerText = message.username;
-      //     p.innerHTML += `<span>${message.time}</span>`;
-      //     div.appendChild(p);
-      //     const para = document.createElement("p");
-      //     para.classList.add("text");
-      //     para.innerText = message.text;
-      //     div.appendChild(para);
-      //     document.querySelector(".chat-messages").appendChild(div);
-      //   }
+      function outputMessage(message) {
+        const div = document.createElement("div");
+        div.classList.add("message");
+        const p = document.createElement("p");
+        p.classList.add("meta");
+        p.innerText = message.username;
+        p.innerHTML += `<span>${message.time}</span>`;
+        div.appendChild(p);
+        const para = document.createElement("p");
+        para.classList.add("text");
+        para.innerText = message.text;
+        div.appendChild(para);
+        document.querySelector(".chat-messages").appendChild(div);
+      }
 
       // Add room name to DOM
+      function outputRoomName(room) {
+        roomName.innerText = room;
+      }
 
       // Add users to DOM
-      //   function outputUsers(users) {
-      //     userList.innerHTML = "";
-      //     users.forEach((user) => {
-      //       const li = document.createElement("li");
-      //       li.innerText = user.username;
-      //       userList.appendChild(li);
-      //     });
-      //   }
+      function outputUsers(users) {
+        userList.innerHTML = "";
+        users.forEach((user) => {
+          const li = document.createElement("li");
+          li.innerText = user.username;
+          userList.appendChild(li);
+        });
+      }
 
       //Prompt the user before leave chat room
-      // chatForm.addEventListener("submit", (e) => {
-      //   e.preventDefault();
-      //   let msg = e.target.elements.msg.value;
-      //   msg = msg.trim();
-      //   if (!msg) {
-      //     return false;
-      //   }
-
-      //   socket.emit("new_msg", {
-      //     message: msg,
-      //     roomid: "<%= roomid %>",
-      //     sender: "<%= user %>",
-      //   });
-      //   // Clear the input field
-      //   e.target.elements.msg.value = "";
-      //   e.target.elements.msg.focus();
-      // });
-      let msgList = document.getElementById("msg_list");
-      socket.on("msg_rcvd", (data) => {
-        let msg = document.createElement("li");
-        console.log("sender");
-        msg.textContent = data.sender + " - " + data.message;
-        msgList.appendChild(msg);
-      });
-
-      // const leaveButton = document.getElementById("leave-btn");
       document.getElementById("leave-btn").addEventListener("click", () => {
-        console.log("Leave Room button clicked"); // Debugging line
         const leaveRoom = confirm(
           "Are you sure you want to leave the chatroom?"
         );
         if (leaveRoom) {
-          window.location.href = "/";
+          window.location = "../index.html";
         } else {
         }
       });
